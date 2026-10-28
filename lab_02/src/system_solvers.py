@@ -26,13 +26,15 @@ class UniversalNewtonSolver:
             J = self.jacobian(x)
             N = len(F)
 
-            # Вычисляем погрешность по невязке (норма Чебышёва)
+            # Невязка в текущей точке (норма Чебышёва)
             residual = max(abs(fi) for fi in F)
 
+            # Записываем состояние ДО шага (x_k, невязка в x_k)
             history.append({
-                "iter": step + 1,
+                "iter": step,
                 "x": list(x),
-                "diff": residual
+                "residual": residual,
+                "step_diff": None,   # шаг появится после обновления
             })
 
             if residual < self.eps:
@@ -51,7 +53,15 @@ class UniversalNewtonSolver:
                 delta = solver.solve(neg_f)
 
             # Обновляем решение: x_new = x + delta
-            x = [x[i] + delta[i] for i in range(N)]
+            x_new = [x[i] + delta[i] for i in range(N)]
+
+            # Шаг = max|x_new - x_old|
+            step_diff = max(abs(x_new[i] - x[i]) for i in range(N))
+
+            # Дописываем шаг в последнюю запись history (это шаг, сделанный ИЗ x_k)
+            history[-1]["step_diff"] = step_diff
+
+            x = x_new
 
         raise ValueError(f"Метод Ньютона не сошёлся за {self.max_iterations} итераций!")
 
@@ -74,23 +84,32 @@ class UniversalMPISolver:
         history = []
 
         for step in range(self.max_iterations):
-            x_read = list(x)
-
             if self.domain_check is not None and not self.domain_check(x):
                 raise ValueError(f"Точка {x} выходит за область определения функции.")
 
-            x = self.phi(x)
+            x_read = list(x)
 
-            # Вычисляем погрешность как расстояние между соседними шагами max|x_new - x_old|
-            error = max(abs(x[k] - x_read[k]) for k in range(len(x)))
+            # Шаг итерации
+            x_new = self.phi(x_read)
 
+            # Шаг = max|x_new - x_old|
+            step_diff = max(abs(x_new[k] - x_read[k]) for k in range(len(x_new)))
+
+            # Невязка в новой точке (для согласованности с Ньютоном)
+            F_new = self.f(x_new)
+            residual = max(abs(fi) for fi in F_new)
+
+            # Записываем НОВУЮ точку x_{k+1} с её невязкой и сделанным шагом
             history.append({
                 "iter": step + 1,
-                "x": list(x),
-                "diff": error
+                "x": list(x_new),
+                "residual": residual,
+                "step_diff": step_diff,
             })
 
-            if error < self.eps:
+            x = x_new
+
+            if step_diff < self.eps:
                 return x, history
 
         raise ValueError(f"Метод простых итераций не сошёлся за {self.max_iterations} итераций!")

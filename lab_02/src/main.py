@@ -21,6 +21,19 @@ from nonlinear_functions import (
 )
 from system_solvers import UniversalMPISolver, UniversalNewtonSolver
 
+def print_history_table(title, history):
+    print("\n" + "-" * 78)
+    print(title)
+    print("-" * 78)
+    print(f"  {'Шаг':<5} | {'x1':<12} | {'x2':<12} | {'Невязка ||F||':<16} | {'Шаг ||dx||':<14}")
+    print("  " + "-" * 74)
+    for row in history:
+        x1 = row['x'][0]
+        x2 = row['x'][1] if len(row['x']) > 1 else float('nan')
+        res = row['residual']
+        sd = row['step_diff']
+        sd_str = f"{sd:.3e}" if sd is not None else "—"
+        print(f"  {row['iter']:<5} | {x1:<12.6f} | {x2:<12.6f} | {res:<16.3e} | {sd_str:<14}")
 
 def main():
     # Задаем пути к конфигурационным текстовым файлам в изолированной папке data
@@ -90,15 +103,9 @@ def main():
     # --------------------------------------------------------------------------
     # АНАЛИЗ ЗАВИСИМОСТИ ПОГРЕШНОСТИ ОТ КОЛИЧЕСТВА ИТЕРАЦИЙ (ДЛЯ ОТЧЕТА ПО ТЗ)
     # --------------------------------------------------------------------------
-    print("\n" + "-" * 70)
-    print("АНАЛИЗ СХОДИМОСТИ И ПОГРЕШНОСТИ ДЛЯ СИСТЕМЫ (Пункт 2.2):")
-    print("-" * 70)
-    print(f"  {'Шаг':<5} | {'Координата x1':<14} | {'Координата x2':<14} | {'Погрешность (Чебышёв)':<22}")
-    print("  " + "-" * 66)
 
-    # Выводим красивую лог-таблицу для Ньютона
-    for step in hist_newton_22:
-        print(f"  {step['iter']:<5} | {step['x'][0]:<14.6f} | {step['x'][1]:<14.6f} | {step['diff']:<22.2e}")
+    print_history_table("МЕТОД НЬЮТОНА (пункт 2.2): траектория и сходимость", hist_newton_22)
+    print_history_table("МЕТОД ПРОСТЫХ ИТЕРАЦИЙ (пункт 2.2): траектория и сходимость", hist_mpi_22)
 
     print("=" * 70)
 
